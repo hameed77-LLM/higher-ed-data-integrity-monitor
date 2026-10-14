@@ -1,0 +1,42 @@
+name: nightly-integrity-run
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 7 * * *"   # 2:17 AM Chicago (CDT), every night
+  workflow_dispatch:
+
+jobs:
+  test-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Unit and end-to-end tests
+        run: python -m unittest discover -s tests -t . -v
+
+      - name: Nightly data-integrity run
+        run: python -m dim.pipeline --backfill 30
+
+      - name: Publish reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: integrity-report-${{ github.run_number }}
+          path: |
+            output/dashboard.html
+            output/exception_report_*.xlsx
+            output/exceptions.csv
+            output/duplicate_review.csv
+            output/metrics.json
+            output/run_history.csv
+          retention-days: 30
